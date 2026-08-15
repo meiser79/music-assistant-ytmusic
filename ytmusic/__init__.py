@@ -243,6 +243,8 @@ CONF_PREFER_AUDIO_QUALITY = "prefer_audio_quality"
 CONF_FILTER_AI_MUSIC = "filter_ai_music"
 CONF_AI_BLOCKLIST = "ai_blocklist"
 CONF_AI_BLOCKLIST_URL = "ai_blocklist_url"
+CONF_PO_TOKEN_SERVER_URL = "po_token_server_url"
+DEFAULT_PO_TOKEN_SERVER_URL = "http://127.0.0.1:4416"
 
 # How long a fetched remote blocklist is trusted before a refresh is scheduled.
 # These lists change on the order of days, and the refresh happens in the
@@ -817,6 +819,16 @@ async def get_config_entries(
             "index is the only thing that tells them apart.",
         ),
         ConfigEntry(
+            key=CONF_PO_TOKEN_SERVER_URL,
+            type=ConfigEntryType.STRING,
+            label="PO Token Server URL",
+            default_value=DEFAULT_PO_TOKEN_SERVER_URL,
+            required=True,
+            description="The URL to the PO Token server. Can be left as default for most people. "
+            "\n\n**Note that this does require you to have the 'YT Music PO Token Generator' addon "
+            "installed!**"
+        ),
+        ConfigEntry(
             key=CONF_PREFER_AUDIO_QUALITY,
             type=ConfigEntryType.BOOLEAN,
             label="Prefer highest audio quality",
@@ -922,6 +934,15 @@ class YoutubeMusicFreeProvider(MusicProvider):
         await self._install_packages()
         await self._purge_legacy_auth_file()
         self._library_seen_nonempty = {}
+        self._po_token_server_url = (
+            self.config.get_value(CONF_PO_TOKEN_SERVER_URL) or DEFAULT_PO_TOKEN_SERVER_URL
+        )
+        if not await self._verify_po_token_url():
+            raise LoginFailed(
+                "PO Token server URL is not reachable. "
+                "Make sure you have installed the YT Music PO Token Generator "
+                "and that it is running."
+            )
         # Explicit None check: a plain `or True` would swallow a configured
         # False and pin every instance to the high-quality selector.
         prefer_quality = self.config.get_value(CONF_PREFER_AUDIO_QUALITY)
@@ -2733,16 +2754,28 @@ class YoutubeMusicFreeProvider(MusicProvider):
             ydl_opts = {
                 "quiet": True,
                 "no_warnings": True,
-                # Deliberately no "player_client" pin. It is tempting to name the
-                # clients that work without an account, but no single list is valid
-                # across the yt-dlp range the manifest allows: android_vr does not
-                # exist in 2024.01, and android_music was removed by 2026.07, where
-                # the remaining android/ios clients are GVS PO-token gated and yield
-                # no usable anonymous formats at all. yt-dlp's own defaults track
-                # that moving target for us, so let them. See PR #44.
+                # Pinned to "web_music". Leaving client selection to yt-dlp's
+                # defaults (the old approach, see PR #44) lets it pick formats
+                # from clients like web_embedded or android_vr. Those formats
+                # can carry a GVS PO token bound to the video ID rather than
+                # the session; yt-dlp detects the requirement ("Detected
+                # experiment to bind GVS PO Token to video ID for <client>")
+                # but does not fetch a matching token for it, so the URL comes
+                # back without a "pot=" param and playback 403s at the CDN,
+                # even though extraction itself succeeds. web_music does not
+                # trigger that experiment and, like MA's official provider,
+                # still exposes itag 251 (Opus, ~130 kbps) for catalog tracks,
+                # so pinning to it avoids the 403 without giving up quality.
+                # Re-open this if bgutil-ytdlp-pot-provider gains reliable
+                # content-bound token support and the other clients' formats
+                # are needed again (e.g. for a track web_music can't serve).
                 "extractor_args": {
                     "youtube": {
-                        "skip": ["translated_subs", "dash"]
+                        "skip": ["translated_subs", "dash"],
+                        "player_client": ["web_music"],
+                    },
+                    "youtubepot-bgutilhttp": {
+                        "base_url": [self._po_token_server_url],
                     },
                 },
             }
@@ -3253,10 +3286,26 @@ class YoutubeMusicFreeProvider(MusicProvider):
             artist_obj.get("name") or artist_obj.get("artist") or "Unknown",
         )
 
+    async def _verify_po_token_url(self) -> bool:
+        """Ping the PO Token server and verify the response."""
+        url = f"{self._po_token_server_url}/ping"
+        try:
+            async with self.mass.http_session.get(url) as response:
+                response.raise_for_status()
+                self.logger.debug("PO Token server responded with %s", response.status)
+                return response.status == 200
+        except (ClientError, TimeoutError) as err:
+            self.logger.debug("PO Token server ping failed: %s", err)
+            return False
+
     async def _install_packages(self) -> None:
         """Install required packages if not already present."""
-        for pkg in ("yt-dlp[default]", "ytmusicapi"):
+        for pkg in ("bgutil-ytdlp-pot-provider", "yt-dlp[default]", "ytmusicapi"):
             await install_package(pkg)
+        try:
+            await asyncio.to_thread(importlib.import_module, "yt_dlp_plugins.extractor.getpot_bgutil")
+        except ImportError as err:
+            raise SetupFailedError("bgutil-ytdlp-pot-provider failed to install") from err
         try:
             await asyncio.to_thread(importlib.import_module, "yt_dlp")
         except ImportError as err:

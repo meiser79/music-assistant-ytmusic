@@ -1,4 +1,4 @@
-"""Unit tests for the YouTube Music (Free) provider."""
+"""Unit tests for the YouTube Music provider."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ from music_assistant_models.errors import (
     MediaNotFoundError,
 )
 
-import ytmusic_free as ytm
+import ytmusic as ytm
 
 
 # ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ def test_auth_constants():
     ],
 )
 def test_yt_playlist_url_strips_vl_prefix(playlist_id, expected):
-    assert ytm.YoutubeMusicFreeProvider._yt_playlist_url(playlist_id) == expected
+    assert ytm.YoutubeMusicProvider._yt_playlist_url(playlist_id) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -610,7 +610,7 @@ def test_parse_track_minimal(provider):
     assert track.artists[0].name == "An Artist"
     mappings = list(track.provider_mappings)
     assert mappings[0].item_id == "abc123"
-    assert mappings[0].provider_domain == "ytmusic_free"
+    assert mappings[0].provider_domain == "ytmusic"
     assert mappings[0].url == f"{ytm.YTM_DOMAIN}/watch?v=abc123"
 
 
@@ -3425,7 +3425,7 @@ class _CaptureHandler(_logging.Handler):
 
 def _attach_capture(provider):
     handler = _CaptureHandler()
-    logger = _logging.getLogger(f"ytmusic_free_capture_{id(handler)}")
+    logger = _logging.getLogger(f"ytmusic_capture_{id(handler)}")
     logger.handlers = [handler]
     logger.setLevel(_logging.DEBUG)
     logger.propagate = False

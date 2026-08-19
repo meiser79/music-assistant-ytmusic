@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install the MA Provider Watcher add-on for the ytmusic_free provider.
+# Install the MA Provider Watcher add-on for the ytmusic provider.
 #
 # Portable across HAOS (BusyBox ash) and Supervised installs. Uses curl + tar
 # instead of git so it runs on HAOS, where git is not available.
@@ -292,19 +292,19 @@ tar -xzf "$TMPDIR/repo.tar.gz" -C "$TMPDIR" \
 # and commit behave the same.
 SRC_ROOT=""
 for _candidate in "$TMPDIR"/*/; do
-    if [ -d "$_candidate""ytmusic_free" ]; then
+    if [ -d "$_candidate""ytmusic" ]; then
         SRC_ROOT="${_candidate%/}"
         break
     fi
 done
-if [ -z "$SRC_ROOT" ] || [ ! -d "$SRC_ROOT/ytmusic_free" ]; then
-    die "ytmusic_free/ not found in the archive downloaded from $TARBALL_URL"
+if [ -z "$SRC_ROOT" ] || [ ! -d "$SRC_ROOT/ytmusic" ]; then
+    die "ytmusic/ not found in the archive downloaded from $TARBALL_URL"
 fi
 
 # The number a bug report needs. The add-on carries its own version line (see
 # ADDON_VERSION_LINE above), so this is surfaced in the description instead.
 PROVIDER_VERSION="$(sed -n 's/^__version__ = "\([^"]*\)".*/\1/p' \
-    "$SRC_ROOT/ytmusic_free/__init__.py" 2>/dev/null | head -n1)"
+    "$SRC_ROOT/ytmusic/__init__.py" 2>/dev/null | head -n1)"
 [ -n "$PROVIDER_VERSION" ] || PROVIDER_VERSION="unknown"
 log "Bundling provider version $PROVIDER_VERSION"
 
@@ -312,7 +312,7 @@ log "Bundling provider version $PROVIDER_VERSION"
 
 log "Creating $ADDON_DIR"
 mkdir -p "$ADDON_DIR"
-cp -R "$SRC_ROOT/ytmusic_free" "$ADDON_DIR/ytmusic_free"
+cp -R "$SRC_ROOT/ytmusic" "$ADDON_DIR/ytmusic"
 
 # Guard values that get interpolated into run.sh (unquoted heredoc) + TARBALL_URL
 # against shell metacharacters, so operator input can't inject code into the
@@ -327,7 +327,7 @@ done
 log "Writing config.yaml"
 cat > "$ADDON_DIR/config.yaml" <<EOF
 name: "$ADDON_NAME"
-description: "Re-installs the ytmusic_free provider into Music Assistant after every container restart. Bundles provider $PROVIDER_VERSION (from $REF)."
+description: "Re-installs the ytmusic provider into Music Assistant after every container restart. Bundles provider $PROVIDER_VERSION (from $REF)."
 version: "$ADDON_VERSION"
 slug: $ADDON_SLUG
 init: false
@@ -352,10 +352,10 @@ mkdir -p "$ADDON_DIR/translations"
 cat > "$ADDON_DIR/translations/en.yaml" <<'EOF'
 configuration:
   auto_update:
-    name: Keep the ytmusic_free provider up to date
+    name: Keep the ytmusic provider up to date
     description: >-
       Off by default. When enabled, periodically check GitHub for a newer
-      ytmusic_free provider and reinstall it (restarting Music Assistant) only
+      ytmusic provider and reinstall it (restarting Music Assistant) only
       when the code actually changed. Note this downloads and runs branch-head
       code inside Music Assistant unattended. This is NOT the add-on's own "Auto
       update" control on the Info tab, which updates the watcher add-on itself;
@@ -384,7 +384,7 @@ FROM $BUILD_FROM
 
 RUN apk add --no-cache docker-cli bash curl tar jq
 
-COPY ytmusic_free/ /provider/ytmusic_free/
+COPY ytmusic/ /provider/ytmusic/
 
 COPY watcher_lib.sh /watcher_lib.sh
 COPY run.sh /run.sh
@@ -456,9 +456,9 @@ fetch_latest() {
     if ! tar -xzf "$tmp/p.tgz" -C "$tmp" 2>/dev/null; then
         echo "auto-update: extract failed"; rm -rf "$tmp"; return 1
     fi
-    nd="$(find "$tmp" -maxdepth 3 -type d -name ytmusic_free 2>/dev/null | head -n1)"
+    nd="$(find "$tmp" -maxdepth 3 -type d -name ytmusic 2>/dev/null | head -n1)"
     if [ -z "$nd" ]; then
-        echo "auto-update: ytmusic_free not found in tarball"; rm -rf "$tmp"; return 1
+        echo "auto-update: ytmusic not found in tarball"; rm -rf "$tmp"; return 1
     fi
     # hash file contents by RELATIVE path (cd into $nd) so a random tmp dir name
     # doesn't change the digest -> stable across fetches of identical code
@@ -486,9 +486,9 @@ cat > "$ADDON_DIR/run.sh" <<EOF
 #!/usr/bin/env bash
 
 MA="$MA_ID"
-BUNDLED="/provider/ytmusic_free"
-CACHE="/data/ytmusic_free"
-HASHFILE="/data/ytmusic_free.sha256"
+BUNDLED="/provider/ytmusic"
+CACHE="/data/ytmusic"
+HASHFILE="/data/ytmusic.sha256"
 DST="/app/venv/lib/$PYTHON_VERSION/site-packages/music_assistant/providers"
 # Where auto-update pulls the provider from. Baked from the installer's
 # --repo-owner/--ref so a fork self-updates from its own source.
@@ -560,12 +560,12 @@ resolve_ma() {
 
 install_provider() {
     src="\$(provider_src)"
-    echo "[\$(date)] Installing ytmusic_free provider from \$src ..."
+    echo "[\$(date)] Installing ytmusic provider from \$src ..."
     sleep 3
     # Clear any stale in-place copy so docker cp is a clean replace, not a merge:
     # files deleted upstream would otherwise linger across periodic auto-updates
     # (docker restart keeps the container filesystem). Mirrors install_provider.sh.
-    docker exec "\$MA" rm -rf "\$DST/ytmusic_free" 2>/dev/null || true
+    docker exec "\$MA" rm -rf "\$DST/ytmusic" 2>/dev/null || true
     docker cp "\$src" "\$MA:\$DST/" && echo "[\$(date)] Copied OK" || { echo "[\$(date)] ERROR: cp failed"; return 1; }
     docker restart "\$MA" && echo "[\$(date)] MA restarted" || echo "[\$(date)] ERROR: restart failed"
 }

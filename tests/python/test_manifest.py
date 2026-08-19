@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 
-MANIFEST_PATH = Path(__file__).resolve().parents[2] / "ytmusic_free" / "manifest.json"
+MANIFEST_PATH = Path(__file__).resolve().parents[2] / "ytmusic" / "manifest.json"
 
 
 @pytest.fixture(scope="module")
@@ -22,7 +22,7 @@ def test_manifest_required_top_level_fields(manifest):
 
 
 def test_manifest_domain_matches_package_dir(manifest):
-    assert manifest["domain"] == "ytmusic_free"
+    assert manifest["domain"] == "ytmusic"
     assert MANIFEST_PATH.parent.name == manifest["domain"]
 
 

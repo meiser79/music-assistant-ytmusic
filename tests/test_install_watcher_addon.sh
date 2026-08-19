@@ -220,8 +220,8 @@ if [ "$network_ok" = "1" ]; then
     assert_file_exists "build.yaml created"   "$ADDON/build.yaml"
     assert_file_exists "Dockerfile created"   "$ADDON/Dockerfile"
     assert_file_exists "run.sh created"       "$ADDON/run.sh"
-    assert_file_exists "ytmusic_free/__init__.py copied"   "$ADDON/ytmusic_free/__init__.py"
-    assert_file_exists "ytmusic_free/manifest.json copied" "$ADDON/ytmusic_free/manifest.json"
+    assert_file_exists "ytmusic/__init__.py copied"   "$ADDON/ytmusic/__init__.py"
+    assert_file_exists "ytmusic/manifest.json copied" "$ADDON/ytmusic/manifest.json"
 
     if [ -x "$ADDON/run.sh" ]; then
         pass "run.sh is executable"
@@ -317,7 +317,7 @@ if [ "$network_ok" = "1" ]; then
     fi
 
     dockerfile="$(cat "$ADDON/Dockerfile")"
-    assert_contains "Dockerfile copies provider" "COPY ytmusic_free/ /provider/ytmusic_free/" "$dockerfile"
+    assert_contains "Dockerfile copies provider" "COPY ytmusic/ /provider/ytmusic/" "$dockerfile"
     assert_contains "Dockerfile installs docker-cli" "docker-cli" "$dockerfile"
 
     # --- Idempotency ---

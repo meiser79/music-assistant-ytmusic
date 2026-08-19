@@ -43,7 +43,7 @@ Search the Music Assistant log for `provider version` to find it. Without that l
 
 ## Installation: Standalone Docker Compose
 
-If you are running Music Assistant via standalone Docker Compose instead of the Home Assistant OS Add-on, you can use our pre-built custom image which comes with the `ytmusic_free` provider pre-installed.
+If you are running Music Assistant via standalone Docker Compose instead of the Home Assistant OS Add-on, you can use our pre-built custom image which comes with the `ytmusic` provider pre-installed.
 
 Replace the default upstream image (`ghcr.io/music-assistant/server:latest`) with this image in your `docker-compose.yml`:
 
@@ -114,11 +114,11 @@ The provider lives in MA's Python `site-packages`, and the Python version moves 
 
 ```bash
 PYVER=$(docker exec "$MA" sh -c 'ls /app/venv/lib' | grep -m1 '^python3')
-docker cp /path/to/ytmusic_free \
+docker cp /path/to/ytmusic \
   "$MA:/app/venv/lib/$PYVER/site-packages/music_assistant/providers/"
 ```
 
-Replace `/path/to/ytmusic_free` with wherever you placed the folder (e.g. `/config/custom_components/mass/providers/ytmusic_free`). The one-line `install_provider.sh` runs this detection for you, so prefer it unless you are debugging.
+Replace `/path/to/ytmusic` with wherever you placed the folder (e.g. `/config/custom_components/mass/providers/ytmusic`). The one-line `install_provider.sh` runs this detection for you, so prefer it unless you are debugging.
 
 ### 3. Restart Music Assistant
 
@@ -130,7 +130,7 @@ docker restart "$MA"
 
 ### 4. Add the provider in MA
 
-Go to **Settings → Apps → Add** in the MA UI. You should see **"YouTube Music (Free)"** listed. No credentials are required for basic playback.
+Go to **Settings → Apps → Add** in the MA UI. You should see **"YouTube Music"** listed. No credentials are required for basic playback.
 
 ### Adding more than one account
 
@@ -192,7 +192,7 @@ Authentication is **not required** for search, browse, and playback. However, ad
 
 ### Setup
 
-1. In the MA UI, go to **Settings → Music sources** and open the **YouTube Music (Free)** entry you want to authenticate (if you added several, each one holds its own cookie)
+1. In the MA UI, go to **Settings → Music sources** and open the **YouTube Music** entry you want to authenticate (if you added several, each one holds its own cookie)
 2. Set **Authentication** to **Browser cookie**
 3. Get your cookie (do this in a fresh **incognito / private window**, see the tip below):
    - Open a new incognito/private window and log in to `music.youtube.com`
@@ -288,18 +288,13 @@ playlist links.)
 ## Troubleshooting
 
 **Provider doesn't appear in MA**
-- Confirm the folder is named exactly `ytmusic_free` and contains both `__init__.py` and `manifest.json`.
+- Confirm the folder is named exactly `ytmusic` and contains both `__init__.py` and `manifest.json`.
 - Verify the files are inside the container, not just in `/config/`.
 - Check MA logs for import errors during startup.
 
 **Track fails to play / `UnplayableMediaError`**
 - yt-dlp may need updating: run `pip install -U yt-dlp` inside the MA container.
 - Some tracks are region-locked or removed and cannot be streamed.
-
-**Tracks skipped with `ytmusic is not available`**
-- Some third-party tools (for example [Beatify](https://github.com/mholzi/beatify)) hand Music Assistant links in the form `ytmusic://track/<id>`. Music Assistant routes a media link by its scheme prefix, and `ytmusic://` belongs to the official premium YouTube Music provider. When that provider is not installed, the queue drops the item and logs `Skipping ytmusic://track/<id>: ytmusic is not available`.
-- Rewrite the prefix to this provider's scheme, `ytmusic_free://track/<id>`, and the link resolves here. A track id is the raw YouTube video id and is identical on both providers, so the swap points at the same song. This is safe for `track/` links only. Album, artist, and playlist ids live in separate namespaces and will not map across.
-- A provider cannot claim another provider's scheme, since Music Assistant core owns that routing, so the lasting fix belongs in the tool that emits the link. Background and discussion: [#31](https://github.com/sproft/music-assistant-ytmusic/issues/31).
 
 **Playlist shows "No playable items found"**
 - Ensure you are on the latest version of this provider (playlist support uses a yt-dlp fallback added after the initial release).
